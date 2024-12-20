@@ -11,12 +11,6 @@ const productSchema = new mongoose.Schema(
       minlength: [3, "Too short product title"],
       maxlength: [100, "Too long product title"],
     },
-    slug: {
-      type: String,
-      required: true,
-      lowercase: true,
-      select: false,
-    },
     description: {
       type: String,
       required: [true, "Product description required"],
@@ -30,6 +24,7 @@ const productSchema = new mongoose.Schema(
     sold: {
       type: Number,
       default: 0,
+      select: false,
     },
     price: {
       type: Number,
@@ -53,11 +48,16 @@ const productSchema = new mongoose.Schema(
         },
       },
     },
-    imageCover: {
-      type: String,
-      required: [true, "Product Image cover is required"],
+    images: {
+      type: [String],
+      required: [true, "Product images required"],
+      validate: {
+        validator: function (value) {
+          return value.length > 0;
+        },
+        message: "Product images must have at least one",
+      },
     },
-    images: [String],
     category: {
       type: mongoose.Types.ObjectId,
       ref: "Category",
@@ -84,6 +84,14 @@ const productSchema = new mongoose.Schema(
         message: "Id Not Valid",
       },
     },
+    status: {
+      type: String,
+      required: [true, "Product Status Is Required"],
+      enum: {
+        values: ["inStock", "outStock"],
+        message: "Products Status Must Between Tow Value [inStock Or outStock]",
+      },
+    },
   },
   { timestamps: true }
 );
@@ -91,21 +99,22 @@ const productSchema = new mongoose.Schema(
 productSchema.pre("save", function (next) {
   if (this.isModified("name"))
     this.slug = slugify(this.name, { lower: true, trim: true });
+
   next();
 });
 
 productSchema.pre(/^find/, function (next) {
   this.populate({
     path: "category",
-    select: "name -_id",
+    select: "name _id",
   })
     .populate({
       path: "brand",
-      select: "name -_id",
+      select: "name _id",
     })
     .populate({
       path: "subCategory",
-      select: "name -_id",
+      select: "name _id",
     });
   next();
 });

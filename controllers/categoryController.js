@@ -1,10 +1,53 @@
 const factory = require("./handlersFactory");
 const Category = require("../models/categoryModal");
+const catchAsync = require("../utils/catchAsync");
 
 // @desc    Get list of categories
 // @route   GET /api/v1/categories
 // @access  Public
-exports.getCategories = factory.getAll(Category);
+exports.getCategories = catchAsync(async (req, res, next) => {
+  const numCategories = await Category.countDocuments();
+  const categories = await Category.aggregate([
+    {
+      $lookup: {
+        from: "products",
+        localField: "_id",
+        foreignField: "category",
+        as: "products",
+      },
+    },
+    {
+      $addFields: {
+        productsCount: {
+          $size: "$products",
+        },
+      },
+    },
+    {
+      $project: {
+        products: 0,
+        __v: 0,
+      },
+    },
+    {
+      $limit: req.query.limit * 1 || 10,
+    },
+    {
+      $sort: {
+        productsCount: -1,
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    results: categories.length,
+    total: numCategories,
+    data: {
+      categories,
+    },
+  });
+});
 
 // @desc    Get specific category by ID
 // @route   GET /api/v1/categories/:id
